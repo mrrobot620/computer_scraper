@@ -246,13 +246,12 @@ class ProductScraper:
             "ID": url.split("/")[-3],
             "Type": "simple",
             "SKU": url.split("/")[-3],
-            "name": url.split("/")[-2],
+            "Name": url.split("/")[-2],
             "Published": 1,
-            "Featured": 0,
-            "Visbility in catalog": "visible",
+            "Is featured?": 0,
+            "Visibility in catalog": "visible",
             "Categories": category,
-            "Images": image_urls,
-            "Own_Images": own_images,
+            "Images": own_images,
             "Meta: _wp_page_template": "default",
             'product-description': description,
             "FeaturesTab": features_text,
@@ -341,7 +340,7 @@ class ProductScraper:
 if __name__ == '__main__':
     print(Panel("[bold green]\u2705 Scraping Process Started \u2705[/]", expand=False))
     scraper = ProductScraper()
-    asyncio.run(scraper.start_scraping())
+    #asyncio.run(scraper.start_scraping())
     asyncio.run(scraper.scroll_product_tree())
     asyncio.run(scraper.download_images())
 
