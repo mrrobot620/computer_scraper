@@ -250,7 +250,7 @@ class ProductScraper:
             "Is featured?": 0,
             "Visibility in catalog": "visible",
             "Categories": category,
-            "Images": own_images,
+            "Images": " | ".join(own_images),
             "Meta: _wp_page_template": "default",
             'product-description': description,
             "FeaturesTab": features_text,
