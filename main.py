@@ -11,8 +11,8 @@ from datetime import datetime
 import random
 import async_timeout
 from urllib.parse import urlparse
-
-
+from PIL import Image
+import io
 
 class ProductScraper:
     def __init__(self) -> None:
@@ -237,9 +237,8 @@ class ProductScraper:
         entry_id = url.split("/")[-3]
         own_images = []
 
-        for i, img_url in enumerate(image_urls):
-            ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
-            image_id = f"https://dubaicomputershop.com/pro-images/{entry_id}_{i}{ext}"
+        for i, _ in enumerate(image_urls):
+            image_id = f"https://dubaicomputershop.com/pro-images/{entry_id}_{i}.png"
             own_images.append(image_id)
 
         data = {
@@ -251,7 +250,7 @@ class ProductScraper:
             "Is featured?": 0,
             "Visibility in catalog": "visible",
             "Categories": category,
-            "Images": own_images,
+            "Images": " | ".join(own_images),
             "Meta: _wp_page_template": "default",
             'product-description': description,
             "FeaturesTab": features_text,
@@ -274,19 +273,25 @@ class ProductScraper:
 
     async def download_images(self, max_retries=3, base_delay=1):
         os.makedirs("images", exist_ok=True)
-
+        semaphore = asyncio.Semaphore(10)
         async def download(session, img_url, file_path):
             for attempt in range(1, max_retries + 1):
                 try:
-                    async with async_timeout.timeout(5):
-                        async with session.get(img_url) as resp:
-                            if resp.status == 200:
-                                with open(file_path, 'wb') as f:
-                                    f.write(await resp.read())
-                                print(f"[green]Saved:[/] {file_path}")
-                                return
-                            else:
-                                print(f"[yellow]Attempt {attempt}: Failed to download {img_url} - Status {resp.status}")
+                    async with semaphore:
+                        async with async_timeout.timeout(5):
+                            async with session.get(img_url) as resp:
+                                if resp.status == 200:
+                                    img_bytes = await resp.read()
+                                    try:
+                                        image = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+                                        image.save(file_path, format="PNG")
+                                        print(f"[green]Saved as PNG:[/] {file_path}")
+                                        return
+                                    except Exception as e:
+                                        print(f"[red]Failed to convert image {img_url}: {e}")
+                                        return
+                                else:
+                                    print(f"[yellow]Attempt {attempt}: Failed to download {img_url} - Status {resp.status}")
                 except Exception as e:
                     print(f"[red]Attempt {attempt}: Error downloading {img_url}: {e}")
                 if attempt < max_retries:
@@ -301,8 +306,7 @@ class ProductScraper:
             for entry in self.image_download_queue:
                 entry_id = entry["id"]
                 for i, img_url in enumerate(entry["image_urls"]):
-                    ext = os.path.splitext(urlparse(img_url).path)[1] or ".jpg"
-                    filename = f"{entry_id}_{i}{ext}"
+                    filename = f"{entry_id}_{i}.png"
                     file_path = os.path.join("images", filename)
                     tasks.append(download(session, img_url, file_path))
             await asyncio.gather(*tasks)
@@ -340,7 +344,7 @@ class ProductScraper:
 if __name__ == '__main__':
     print(Panel("[bold green]\u2705 Scraping Process Started \u2705[/]", expand=False))
     scraper = ProductScraper()
-    #asyncio.run(scraper.start_scraping())
+    asyncio.run(scraper.start_scraping())
     asyncio.run(scraper.scroll_product_tree())
     asyncio.run(scraper.download_images())
 
